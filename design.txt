@@ -1,0 +1,74 @@
+-------------------------------------------------------------------------                              Assignment Summary:
+-------------------------------------------------------------------------
+Part One: Network Topology Creation
+
+	1. Read in the network's topology via the commandline arguments. 
+	2. Creates an additional process for each router.
+	3. Listen for messages from other routers.
+	4. Router opens TCP connection to the manager.
+	5. Router sends configuration messages to the manager.
+	6. Manager sends setup message to each router.
+	7. Routers setup the necessary data structures.
+	8. Routers send ready message to the manager when it is ready for simulation and wait for a begin message from the manager.
+	9. Manager receives ready messages from the routers and sned out a begin message to the routers telling it to begin simulation.
+
+Part Two: Link State Routing Protocol 
+
+	1. Routers send LSP messages out to neihbors after receicving the begin message from the manager.
+	2. Routers receives LSP messages from its neighbors and either passes it along or does not pass it along due to reliable flooding process.
+	3. Router computes its routing table based off of the LSP utilizing the forward search algorithm.
+	4. Manager sends print message to each router afer routing algorithm has coverged.
+	5. N.rtable files are created after the router receives the print message.  These files contains the up to date routing tables to each one of the routers neighbors.  It includes the destination router,  the next hop, and the cost to reach the destination router from the source router.
+	6. Router sends the manager a done message after completion of writing the routing table to the file.
+	7. Manager closes all TCP connections to the routers and exits.
+	8. Routers exits.
+	
+Part Three: Sending Data Packets
+
+	1. Modified ls-sim at to take two command line arguments: one for the network topology and the other for the packet description file. 
+	2. Manager prints Trace and the number of the packet.
+	3. Manager sends the source message to the packet's source router.
+	4. Router consults routing table and sends the packet message to router.
+	5. Miscellanous routers prints their addresses and forwards packets onto next routers.
+	6. Destination message is sent to the manager by the destination router and the destination router prints its address.
+	7. Manager prints an empty line and repeats the process for all upcoming packets.
+	8. Manager closes all TCP connections after receiving the destination message for the final packet.
+
+Part Four: Final Project
+
+	1. This part of the project is the final project which is just a combination of parts 1, 2, & 3.  
+
+-------------------------------------------------------------------------
+                            Design Summary:
+-------------------------------------------------------------------------
+	When the program is launched, first it reads the network configuration and then forks into N+1 processes where the parent remains to run as the Manager, and the N forked children are the Routers.
+
+	The network configuration that was read is used only by the Manager and communicated to the Routers only as described in the requirements of the project.
+
+	The communication protocol can be described as follows:
+	1. The Manager listens to a predefined listening port number.
+	2. Each Router first creates an UDP socket with a port number, then opens a TCP connection to the Manager and sends him this port number with a message.
+	3. When the Manager has received the CONFIG messages from all N Routers, then it replies to each one with a message.
+	4. Each Router replies to the Manager with the message "READY".
+	5. As soon as the Manager has received the "READY" message from a TCP connection, it immediately replies with "BEGIN".
+	6. As soon as each Router has received "BEGIN", it starts flooding and keeps flooding for 2 seconds.
+	7. The flooding has 2 phases for each Router:
+	First it sends a LSP message to each neighbor.
+	Second it receives LSP messages, uses them to recalculate its best path to each router, remembers which LSP messages were received, and forwards only those which are received for the first time.
+	8. Now the Router waits for a "PRINT" message from the Manager, and when it receives it, it prints its configuration to a #.rtable file and replies to the Manager with a "DONE" message.
+	9. The Manager sent the "PRINT" message immediately after the "BEGIN" message, but it won't be read until each Router has finished with the flooding process, so the Manager waits until all Routers have read their "PRINT" message and replied with "DONE".
+	10. After the Manager received all its "DONE" messages, it starts reading from the packets file and for each line:
+	- it prints Trace # to the screen
+	- it sends a "SOURCE" message to the source Router.
+	11. Once the Manager has finished all the packets in the file, it sends a "CLOSE" message to each Router and immediately closes the TCP connection.
+	12. As a Router has sent its "DONE" message, it enters into a packet forwarding phase. Here's what it does in a loop:
+	- it waits for an UDP packet for a short period of time (100 ms); if it receives an UDP packet it forwards it according to the protocol
+	- it waits for a TCP message from the Manager for a short period of time (100 ms); if the message is "SOURCE" then it creates an UDP packet and forwards it; if the message is "CLOSE" then it closes all connections and the program exits.
+
+-------------------------------------------------------------------------
+                             Final Thoughts:
+-------------------------------------------------------------------------
+	Implementing the Router processes and simultating UDP packet forwarding and TCP communication to the Manager that is required in Part 3 was a difficult task to accomblish but there exitsted two possible solutions that we considered.
+	1. Write a multithreaded Router process where the UDP thread will use a blocking receive without timeout on the UDP port and the TCP thread will communicate to the Manager in parallel.
+	2. Write a single threaded Router process where the same thread will interleave the receiving on both ports by receiving with timeouts in small time slices.
+	In this project the second solution was implemented, however the first one would've been just as good for this project.
